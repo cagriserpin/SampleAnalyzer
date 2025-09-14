@@ -55,7 +55,7 @@ void EdgeAnalyzerSettings::UpdateInterfacesFromSettings()
 void EdgeAnalyzerSettings::LoadSettings( const char* settings )
 {
     SimpleArchive text_archive;
-    text_archive.SetString( settings );
+    text_archive.SetString( settings ); 
 
     U32 ch = 0, mode = 0;
     U64 minpulse = 0;
