@@ -1,5 +1,4 @@
 #pragma once
-
 #include <AnalyzerSettings.h>
 #include <AnalyzerTypes.h>
 
@@ -11,12 +10,10 @@ public:
     EdgeAnalyzerSettings();
     virtual ~EdgeAnalyzerSettings();
 
-    // user-configurable
     Channel  mChannel;
     EdgeMode mMode;
-    U64      mMinPulseNs;     // 0 disables deglitch
+    U64      mMinPulseNs; // 0 = disabled
 
-    // AnalyzerSettings API
     virtual bool SetSettingsFromInterfaces() override;
     void         UpdateInterfacesFromSettings();
     virtual void LoadSettings( const char* settings ) override;

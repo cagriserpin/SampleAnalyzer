@@ -1,6 +1,5 @@
 #include "EdgeAnalyzerSettings.h"
 #include <AnalyzerHelpers.h>
-#include <sstream>
 
 EdgeAnalyzerSettings::EdgeAnalyzerSettings()
     : mChannel( UNDEFINED_CHANNEL ),
@@ -31,7 +30,6 @@ EdgeAnalyzerSettings::EdgeAnalyzerSettings()
     ClearChannels();
     AddChannel( mChannel, "Edge", false );
 }
-
 EdgeAnalyzerSettings::~EdgeAnalyzerSettings() {}
 
 bool EdgeAnalyzerSettings::SetSettingsFromInterfaces()
@@ -54,31 +52,27 @@ void EdgeAnalyzerSettings::UpdateInterfacesFromSettings()
 
 void EdgeAnalyzerSettings::LoadSettings( const char* settings )
 {
-    SimpleArchive text_archive;
-    text_archive.SetString( settings ); 
+    SimpleArchive ar;
+    ar.SetString( settings );
 
-    U32 ch = 0, mode = 0;
-    U64 minpulse = 0;
+    // Channel has streaming operators; don’t cast to U32.
+    ar >> mChannel;
+    U32 mode = 0;
+    ar >> mode;
+    ar >> mMinPulseNs;
 
-    text_archive >> ch;
-    text_archive >> mode;
-    text_archive >> minpulse;
-
-    mChannel    = (Channel)ch;
-    mMode       = (EdgeMode)mode;
-    mMinPulseNs = minpulse;
+    mMode = (EdgeMode)mode;
 
     ClearChannels();
     AddChannel( mChannel, "Edge", true );
-
     UpdateInterfacesFromSettings();
 }
 
 const char* EdgeAnalyzerSettings::SaveSettings()
 {
-    SimpleArchive text_archive;
-    text_archive << (U32)mChannel;
-    text_archive << (U32)mMode;
-    text_archive << (U64)mMinPulseNs;
-    return SetReturnString( text_archive.GetString() );
+    SimpleArchive ar;
+    ar << mChannel;
+    ar << (U32)mMode;
+    ar << (U64)mMinPulseNs;
+    return SetReturnString( ar.GetString() );
 }

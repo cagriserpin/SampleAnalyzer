@@ -1,7 +1,5 @@
 #pragma once
-
 #include <SimulationChannelDescriptor.h>
-#include <string>
 class EdgeAnalyzerSettings;
 
 class EdgeSimulationDataGenerator

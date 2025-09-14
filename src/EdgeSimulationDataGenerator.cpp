@@ -1,6 +1,5 @@
 #include "EdgeSimulationDataGenerator.h"
 #include "EdgeAnalyzerSettings.h"
-#include <AnalyzerHelpers.h>
 
 EdgeSimulationDataGenerator::EdgeSimulationDataGenerator()
 : mSimSampleRateHz(0),
@@ -9,7 +8,6 @@ EdgeSimulationDataGenerator::EdgeSimulationDataGenerator()
   mState(false)
 {
 }
-
 EdgeSimulationDataGenerator::~EdgeSimulationDataGenerator() {}
 
 void EdgeSimulationDataGenerator::Initialize( U32 simulation_sample_rate, EdgeAnalyzerSettings* settings )
@@ -25,12 +23,9 @@ void EdgeSimulationDataGenerator::Initialize( U32 simulation_sample_rate, EdgeAn
     mNextTransition = 0;
 }
 
-U32 EdgeSimulationDataGenerator::GenerateSimulationData( U64 largest_sample_requested, U32 sample_rate, SimulationChannelDescriptor** simulation_channel )
+U32 EdgeSimulationDataGenerator::GenerateSimulationData( U64 largest_sample_requested, U32 /*sample_rate*/, SimulationChannelDescriptor** simulation_channel )
 {
-    const U32 hz = sample_rate ? sample_rate : mSimSampleRateHz;
-    const U64 period = hz ? (U64)( (double)hz / 10.0 ) : 1000; // arbitrary
-    // produce a slow square wave just to have edges
-
+    const U64 period = 1000; // arbitrary slow square wave
     while( mChannel.GetCurrentSampleNumber() < largest_sample_requested )
     {
         if( mChannel.GetCurrentSampleNumber() >= mNextTransition )
@@ -43,5 +38,5 @@ U32 EdgeSimulationDataGenerator::GenerateSimulationData( U64 largest_sample_requ
     }
 
     *simulation_channel = &mChannel;
-    return 1; // number of channels
+    return 1;
 }

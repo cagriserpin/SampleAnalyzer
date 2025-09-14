@@ -6,12 +6,10 @@ extern "C" ANALYZER_EXPORT const char* GetAnalyzerName()
 {
     return "Edge Analyzer";
 }
-
 extern "C" ANALYZER_EXPORT Analyzer* CreateAnalyzer()
 {
     return new EdgeAnalyzer();
 }
-
 extern "C" ANALYZER_EXPORT void DestroyAnalyzer( Analyzer* analyzer )
 {
     delete analyzer;
@@ -22,7 +20,6 @@ EdgeAnalyzer::EdgeAnalyzer()
     mSettings.reset( new EdgeAnalyzerSettings() );
     SetAnalyzerSettings( mSettings.get() );
 }
-
 EdgeAnalyzer::~EdgeAnalyzer() {}
 
 void EdgeAnalyzer::SetupResults()
@@ -30,8 +27,9 @@ void EdgeAnalyzer::SetupResults()
     mResults.reset( new EdgeAnalyzerResults( this, mSettings.get() ) );
     SetAnalyzerResults( mResults.get() );
 
-    // Critical for Trigger View: emit FrameV2, not legacy Frame.
-    UseFrameV2();
+    // NOTE: Using legacy Frame for now (works everywhere).
+    // When you switch to FrameV2, call UseFrameV2() here.
+    // UseFrameV2();
 
     mResults->AddChannelBubblesWillAppearOn( mSettings->mChannel );
 }
@@ -40,8 +38,8 @@ void EdgeAnalyzer::WorkerThread()
 {
     mData.reset( GetAnalyzerChannelData( mSettings->mChannel ) );
 
-    const U32 sample_rate_hz = GetSampleRate();
-    const double ns_per_sample = sample_rate_hz ? (1e9 / (double)sample_rate_hz) : 0.0;
+    const U32 sr = GetSampleRate();
+    const double ns_per_sample = sr ? (1e9 / (double)sr) : 0.0;
 
     const bool report_rise = ( mSettings->mMode == EdgeMode::Rising );
     const bool report_fall = ( mSettings->mMode == EdgeMode::Falling );
@@ -51,16 +49,15 @@ void EdgeAnalyzer::WorkerThread()
         ? 0
         : (U64)((double)mSettings->mMinPulseNs / ns_per_sample);
 
-    // Prime
     BitState prev = mData->GetBitState();
     U64 last_edge_sample = mData->GetSampleNumber();
 
-    for (;;)
+    for( ;; )
     {
-        if (CheckIfThreadShouldExit())
+        if( CheckIfThreadShouldExit() )
             break;
 
-        if (!mData->AdvanceToNextEdge())
+        if( mData->AdvanceToNextEdge() == false )
             break;
 
         const U64 s = mData->GetSampleNumber();
@@ -69,27 +66,49 @@ void EdgeAnalyzer::WorkerThread()
         const bool rising  = (prev == BIT_LOW  && now == BIT_HIGH);
         const bool falling = (prev == BIT_HIGH && now == BIT_LOW);
 
-        // Deglitch: require previous level duration
         const U64 width_samples = s - last_edge_sample;
-        if (min_pulse_samples && width_samples < min_pulse_samples)
+        if( min_pulse_samples && width_samples < min_pulse_samples )
         {
             prev = now;
             last_edge_sample = s;
             continue;
         }
 
-        if (report_any || (report_rise && rising) || (report_fall && falling))
+        if( report_any || (report_rise && rising) || (report_fall && falling) )
         {
-            FrameV2 f("edge", s, s);          // instantaneous at transition
-            f.AddString("edge", rising ? "RISING" : "FALLING");
-            f.AddString("channel", ChannelShortDisplayName(mSettings->mChannel));
-            f.AddNumber("width_samples", (double)width_samples);  // duration of previous level
-            mResults->AddFrameV2(f);
+            // Legacy Frame (start=end at the transition)
+            Frame frame;
+            frame.mStartingSampleInclusive = s;
+            frame.mEndingSampleInclusive   = s;
+            frame.mData1 = rising ? 1 : 0;     // 1 = RISING, 0 = FALLING
+            frame.mData2 = (U64)width_samples; // prev level duration (samples)
+            mResults->AddFrame( frame );
             mResults->CommitResults();
+            ReportProgress( s );
         }
 
         prev = now;
         last_edge_sample = s;
-        ReportProgress(s);
     }
+}
+
+U32 EdgeAnalyzer::GetMinimumSampleRateHz()
+{
+    // Any realistic value; Logic will warn if too low. 1 Hz is the usual sample template value.
+    return 1;
+}
+const char* EdgeAnalyzer::GetAnalyzerName() const
+{
+    return ::GetAnalyzerName();
+}
+bool EdgeAnalyzer::NeedsRerun()
+{
+    return false;
+}
+U32 EdgeAnalyzer::GenerateSimulationData( U64 largest_sample_requested,
+                                          U32 sample_rate,
+                                          SimulationChannelDescriptor** simulation_channels )
+{
+    mSim.Initialize( sample_rate, mSettings.get() );
+    return mSim.GenerateSimulationData( largest_sample_requested, sample_rate, simulation_channels );
 }

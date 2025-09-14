@@ -1,82 +1,54 @@
 #include "EdgeAnalyzerResults.h"
-#include <AnalyzerHelpers.h>
 #include "EdgeAnalyzer.h"
 #include "EdgeAnalyzerSettings.h"
-#include <iostream>
+#include <AnalyzerHelpers.h>
 #include <fstream>
 
-EdgeAnalyzerResults::EdgeAnalyzerResults( EdgeAnalyzer* analyzer, EdgeAnalyzerSettings* settings )
-:	AnalyzerResults(),
-	mSettings( settings ),
-	mAnalyzer( analyzer )
+EdgeAnalyzerResults::EdgeAnalyzerResults( EdgeAnalyzer* /*analyzer*/, EdgeAnalyzerSettings* settings )
+: AnalyzerResults(),
+  mSettings( settings )
 {
 }
+EdgeAnalyzerResults::~EdgeAnalyzerResults() {}
 
-EdgeAnalyzerResults::~EdgeAnalyzerResults()
+void EdgeAnalyzerResults::GenerateBubbleText( U64 frame_index, Channel /*channel*/, DisplayBase /*display_base*/ )
 {
+    ClearResultStrings();
+
+    Frame f = GetFrame( frame_index );           // legacy Frame (V1)
+    const char* edge_str = (f.mData1 ? "RISING" : "FALLING");
+    AddResultString( edge_str );
 }
 
-void EdgeAnalyzerResults::GenerateBubbleText( U64 frame_index, Channel& channel, DisplayBase display_base )
+void EdgeAnalyzerResults::GenerateExportFile( const char* file, DisplayBase /*display_base*/, U32 /*export_type_user_id*/ )
 {
-	ClearResultStrings();
-	Frame frame = GetFrame( frame_index );
+    std::ofstream s( file, std::ios::out );
+    if( !s.is_open() ) return;
 
-	char number_str[128];
-	AnalyzerHelpers::GetNumberString( frame.mData1, display_base, 8, number_str, 128 );
-	AddResultString( number_str );
+    s << "time_s,edge,width_samples\n";
+    const U64 n = GetNumFrames();
+    for( U64 i = 0; i < n; ++i )
+    {
+        Frame f = GetFrame( i );
+        const double t_s = f.mStartingSampleInclusive / (double)GetSampleRate();
+        char tbuf[64] = {};
+        AnalyzerHelpers::DoubleToString( t_s, 10, tbuf, sizeof(tbuf) );
+        s << tbuf << "," << (f.mData1 ? "RISING" : "FALLING") << "," << (U64)f.mData2 << "\n";
+    }
+    s.close();
 }
 
-void EdgeAnalyzerResults::GenerateExportFile( const char* file, DisplayBase display_base, U32 export_type_user_id )
+void EdgeAnalyzerResults::GeneratePacketTabularText( U64 /*packet_id*/, DisplayBase /*display_base*/ )
 {
-	std::ofstream file_stream( file, std::ios::out );
-
-	U64 trigger_sample = mAnalyzer->GetTriggerSample();
-	U32 sample_rate = mAnalyzer->GetSampleRate();
-
-	file_stream << "Time [s],Value" << std::endl;
-
-	U64 num_frames = GetNumFrames();
-	for( U32 i=0; i < num_frames; i++ )
-	{
-		Frame frame = GetFrame( i );
-		
-		char time_str[128];
-		AnalyzerHelpers::GetTimeString( frame.mStartingSampleInclusive, trigger_sample, sample_rate, time_str, 128 );
-
-		char number_str[128];
-		AnalyzerHelpers::GetNumberString( frame.mData1, display_base, 8, number_str, 128 );
-
-		file_stream << time_str << "," << number_str << std::endl;
-
-		if( UpdateExportProgressAndCheckForCancel( i, num_frames ) == true )
-		{
-			file_stream.close();
-			return;
-		}
-	}
-
-	file_stream.close();
+    ClearResultStrings();
 }
-
-void EdgeAnalyzerResults::GenerateFrameTabularText( U64 frame_index, DisplayBase display_base )
+void EdgeAnalyzerResults::GenerateTransactionTabularText( U64 /*transaction_id*/, DisplayBase /*display_base*/ )
 {
-#ifdef SUPPORTS_PROTOCOL_SEARCH
-	Frame frame = GetFrame( frame_index );
-	ClearTabularText();
-
-	char number_str[128];
-	AnalyzerHelpers::GetNumberString( frame.mData1, display_base, 8, number_str, 128 );
-	AddTabularText( number_str );
-#endif
+    ClearResultStrings();
 }
-
-void EdgeAnalyzerResults::GeneratePacketTabularText( U64 packet_id, DisplayBase display_base )
+void EdgeAnalyzerResults::GenerateFrameTabularText( U64 frame_index, DisplayBase /*display_base*/ )
 {
-	//not supported
-
-}
-
-void EdgeAnalyzerResults::GenerateTransactionTabularText( U64 transaction_id, DisplayBase display_base )
-{
-	//not supported
+    ClearTabularText();
+    Frame f = GetFrame( frame_index );
+    AddTabularText( f.mData1 ? "RISING" : "FALLING" );
 }
