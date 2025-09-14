@@ -1,4 +1,3 @@
-#include "EdgeAnalyzer.h"
 #include "EdgeAnalyzerResults.h"
 #include <AnalyzerChannelData.h>
 
@@ -53,8 +52,7 @@ void EdgeAnalyzer::WorkerThread()
 
     for (;;)
     {
-        if (CheckIfThreadShouldExit())
-            break;
+        CheckIfThreadShouldExit();
 
         // IMPORTANT: In this SDK, AdvanceToNextEdge() returns void.
         if (mData->DoMoreTransitionsExistInCurrentData() == false)
