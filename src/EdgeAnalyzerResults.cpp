@@ -3,6 +3,7 @@
 #include "EdgeAnalyzerSettings.h"
 #include <AnalyzerHelpers.h>
 #include <fstream>
+#include <iomanip>
 
 EdgeAnalyzerResults::EdgeAnalyzerResults( EdgeAnalyzer* /*analyzer*/, EdgeAnalyzerSettings* settings )
 : AnalyzerResults(),
@@ -11,7 +12,7 @@ EdgeAnalyzerResults::EdgeAnalyzerResults( EdgeAnalyzer* /*analyzer*/, EdgeAnalyz
 }
 EdgeAnalyzerResults::~EdgeAnalyzerResults() {}
 
-void EdgeAnalyzerResults::GenerateBubbleText( U64 frame_index, Channel /*channel*/, DisplayBase /*display_base*/ )
+void EdgeAnalyzerResults::GenerateBubbleText(U64 frame_index, Channel& /*channel*/, DisplayBase /*display_base*/)
 {
     ClearResultStrings();
 
@@ -20,29 +21,30 @@ void EdgeAnalyzerResults::GenerateBubbleText( U64 frame_index, Channel /*channel
     AddResultString( edge_str );
 }
 
-void EdgeAnalyzerResults::GenerateExportFile( const char* file, DisplayBase /*display_base*/, U32 /*export_type_user_id*/ )
+void EdgeAnalyzerResults::GenerateExportFile(const char* file, DisplayBase, U32)
 {
-    std::ofstream s( file, std::ios::out );
-    if( !s.is_open() ) return;
+    std::ofstream s(file, std::ios::out);
+    if(!s.is_open()) return;
 
+    const U64 sr = this->GetSampleRate();   // <-- note "this->"
     s << "time_s,edge,width_samples\n";
+
     const U64 n = GetNumFrames();
-    for( U64 i = 0; i < n; ++i )
+    for(U64 i=0; i<n; ++i)
     {
-        Frame f = GetFrame( i );
-        const double t_s = f.mStartingSampleInclusive / (double)GetSampleRate();
-        char tbuf[64] = {};
-        AnalyzerHelpers::DoubleToString( t_s, 10, tbuf, sizeof(tbuf) );
-        s << tbuf << "," << (f.mData1 ? "RISING" : "FALLING") << "," << (U64)f.mData2 << "\n";
+        Frame f = GetFrame(i);
+        const double t_s = sr ? (double)f.mStartingSampleInclusive / (double)sr : 0.0;
+        s << std::fixed << std::setprecision(9) << t_s << "," 
+          << (f.mData1 ? "RISING" : "FALLING") << "," << (U64)f.mData2 << "\n";
     }
-    s.close();
 }
 
-void EdgeAnalyzerResults::GeneratePacketTabularText( U64 /*packet_id*/, DisplayBase /*display_base*/ )
+
+void EdgeAnalyzerResults::GeneratePacketTabularText(U64 /*packet_id*/, DisplayBase /*display_base*/)
 {
     ClearResultStrings();
 }
-void EdgeAnalyzerResults::GenerateTransactionTabularText( U64 /*transaction_id*/, DisplayBase /*display_base*/ )
+void EdgeAnalyzerResults::GenerateTransactionTabularText(U64 /*transaction_id*/, DisplayBase /*display_base*/)
 {
     ClearResultStrings();
 }

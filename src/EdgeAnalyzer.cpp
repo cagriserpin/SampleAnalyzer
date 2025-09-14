@@ -46,8 +46,7 @@ void EdgeAnalyzer::WorkerThread()
     const bool report_any  = ( mSettings->mMode == EdgeMode::Any );
 
     const U64 min_pulse_samples = ( mSettings->mMinPulseNs == 0 || ns_per_sample == 0.0 )
-        ? 0
-        : (U64)((double)mSettings->mMinPulseNs / ns_per_sample);
+        ? 0 : (U64)((double)mSettings->mMinPulseNs / ns_per_sample);
 
     BitState prev = mData->GetBitState();
     U64 last_edge_sample = mData->GetSampleNumber();
@@ -57,9 +56,16 @@ void EdgeAnalyzer::WorkerThread()
         if( CheckIfThreadShouldExit() )
             break;
 
-        if( mData->AdvanceToNextEdge() == false )
-            break;
+        // Wait until there is another transition in the current capture buffer.
+        if( mData->DoMoreTransitionsExistInCurrentData() == false )
+        {
+            // keep UI responsive & advance time a bit
+            ReportProgress( mData->GetSampleNumber() );
+            mData->Advance( 1000 ); // arbitrary
+            continue;
+        }
 
+        mData->AdvanceToNextEdge();  // no return value
         const U64 s = mData->GetSampleNumber();
         const BitState now = mData->GetBitState();
 
@@ -76,21 +82,21 @@ void EdgeAnalyzer::WorkerThread()
 
         if( report_any || (report_rise && rising) || (report_fall && falling) )
         {
-            // Legacy Frame (start=end at the transition)
             Frame frame;
             frame.mStartingSampleInclusive = s;
             frame.mEndingSampleInclusive   = s;
-            frame.mData1 = rising ? 1 : 0;     // 1 = RISING, 0 = FALLING
-            frame.mData2 = (U64)width_samples; // prev level duration (samples)
+            frame.mData1 = rising ? 1 : 0;
+            frame.mData2 = (U64)width_samples;
             mResults->AddFrame( frame );
             mResults->CommitResults();
-            ReportProgress( s );
         }
 
         prev = now;
         last_edge_sample = s;
+        ReportProgress( s );
     }
 }
+
 
 U32 EdgeAnalyzer::GetMinimumSampleRateHz()
 {

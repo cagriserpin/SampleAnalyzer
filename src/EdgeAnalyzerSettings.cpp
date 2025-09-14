@@ -49,30 +49,32 @@ void EdgeAnalyzerSettings::UpdateInterfacesFromSettings()
     mModeInterface->SetNumber( (U64)mMode );
     mMinPulseNsInterface->SetInteger( (S64)mMinPulseNs );
 }
-
-void EdgeAnalyzerSettings::LoadSettings( const char* settings )
+void EdgeAnalyzerSettings::LoadSettings(const char* settings)
 {
     SimpleArchive ar;
-    ar.SetString( settings );
+    ar.SetString(settings);
 
-    // Channel has streaming operators; don’t cast to U32.
-    ar >> mChannel;
     U32 mode = 0;
+
+    ar >> mChannel;
     ar >> mode;
     ar >> mMinPulseNs;
 
     mMode = (EdgeMode)mode;
 
     ClearChannels();
-    AddChannel( mChannel, "Edge", true );
+    AddChannel(mChannel, "Edge", true);
     UpdateInterfacesFromSettings();
 }
 
 const char* EdgeAnalyzerSettings::SaveSettings()
 {
     SimpleArchive ar;
+
     ar << mChannel;
     ar << (U32)mMode;
     ar << (U64)mMinPulseNs;
-    return SetReturnString( ar.GetString() );
+
+    return SetReturnString(ar.GetString());
 }
+
