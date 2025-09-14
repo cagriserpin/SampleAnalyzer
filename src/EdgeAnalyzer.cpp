@@ -36,36 +36,35 @@ void EdgeAnalyzer::SetupResults()
 
 void EdgeAnalyzer::WorkerThread()
 {
-    mData.reset( GetAnalyzerChannelData( mSettings->mChannel ) );
+    mData.reset(GetAnalyzerChannelData(mSettings->mChannel));
 
     const U32 sr = GetSampleRate();
     const double ns_per_sample = sr ? (1e9 / (double)sr) : 0.0;
 
-    const bool report_rise = ( mSettings->mMode == EdgeMode::Rising );
-    const bool report_fall = ( mSettings->mMode == EdgeMode::Falling );
-    const bool report_any  = ( mSettings->mMode == EdgeMode::Any );
+    const bool report_rise = (mSettings->mMode == EdgeMode::Rising);
+    const bool report_fall = (mSettings->mMode == EdgeMode::Falling);
+    const bool report_any  = (mSettings->mMode == EdgeMode::Any);
 
-    const U64 min_pulse_samples = ( mSettings->mMinPulseNs == 0 || ns_per_sample == 0.0 )
+    const U64 min_pulse_samples = (mSettings->mMinPulseNs == 0 || ns_per_sample == 0.0)
         ? 0 : (U64)((double)mSettings->mMinPulseNs / ns_per_sample);
 
     BitState prev = mData->GetBitState();
     U64 last_edge_sample = mData->GetSampleNumber();
 
-    for( ;; )
+    for (;;)
     {
-        if( CheckIfThreadShouldExit() )
+        if (CheckIfThreadShouldExit())
             break;
 
-        // Wait until there is another transition in the current capture buffer.
-        if( mData->DoMoreTransitionsExistInCurrentData() == false )
+        // IMPORTANT: In this SDK, AdvanceToNextEdge() returns void.
+        if (mData->DoMoreTransitionsExistInCurrentData() == false)
         {
-            // keep UI responsive & advance time a bit
-            ReportProgress( mData->GetSampleNumber() );
-            mData->Advance( 1000 ); // arbitrary
+            ReportProgress(mData->GetSampleNumber());
+            mData->Advance(1000);   // keep UI responsive
             continue;
         }
 
-        mData->AdvanceToNextEdge();  // no return value
+        mData->AdvanceToNextEdge();     // no return value
         const U64 s = mData->GetSampleNumber();
         const BitState now = mData->GetBitState();
 
@@ -73,29 +72,30 @@ void EdgeAnalyzer::WorkerThread()
         const bool falling = (prev == BIT_HIGH && now == BIT_LOW);
 
         const U64 width_samples = s - last_edge_sample;
-        if( min_pulse_samples && width_samples < min_pulse_samples )
+        if (min_pulse_samples && width_samples < min_pulse_samples)
         {
             prev = now;
             last_edge_sample = s;
             continue;
         }
 
-        if( report_any || (report_rise && rising) || (report_fall && falling) )
+        if (report_any || (report_rise && rising) || (report_fall && falling))
         {
             Frame frame;
             frame.mStartingSampleInclusive = s;
             frame.mEndingSampleInclusive   = s;
-            frame.mData1 = rising ? 1 : 0;
-            frame.mData2 = (U64)width_samples;
-            mResults->AddFrame( frame );
+            frame.mData1 = rising ? 1 : 0;      // 1 = RISING, 0 = FALLING
+            frame.mData2 = (U64)width_samples;  // duration of previous level (samples)
+            mResults->AddFrame(frame);
             mResults->CommitResults();
         }
 
         prev = now;
         last_edge_sample = s;
-        ReportProgress( s );
+        ReportProgress(s);
     }
 }
+
 
 
 U32 EdgeAnalyzer::GetMinimumSampleRateHz()
